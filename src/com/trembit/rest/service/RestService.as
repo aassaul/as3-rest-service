@@ -49,9 +49,10 @@ public class RestService extends EventDispatcher {
         loader.addEventListener(Event.COMPLETE, onComplete);
         loader.addEventListener(SecurityErrorEvent.SECURITY_ERROR, onError);
         loader.addEventListener(IOErrorEvent.IO_ERROR, onError);
-        loader.addEventListener(HTTPStatusEvent.HTTP_STATUS, onStatus);
         if(HTTPStatusEvent.HTTP_RESPONSE_STATUS){
             loader.addEventListener(HTTPStatusEvent.HTTP_RESPONSE_STATUS, onStatus);
+        }else{
+            loader.addEventListener(HTTPStatusEvent.HTTP_STATUS, onStatus);
         }
     }
 
@@ -59,9 +60,10 @@ public class RestService extends EventDispatcher {
         loader.removeEventListener(Event.COMPLETE, onComplete);
         loader.removeEventListener(SecurityErrorEvent.SECURITY_ERROR, onError);
         loader.removeEventListener(IOErrorEvent.IO_ERROR, onError);
-        loader.removeEventListener(HTTPStatusEvent.HTTP_STATUS, onStatus);
         if(HTTPStatusEvent.HTTP_RESPONSE_STATUS){
             loader.removeEventListener(HTTPStatusEvent.HTTP_RESPONSE_STATUS, onStatus);
+        }else{
+            loader.removeEventListener(HTTPStatusEvent.HTTP_STATUS, onStatus);
         }
     }
 
@@ -76,20 +78,16 @@ public class RestService extends EventDispatcher {
         var responder:LoaderResponder = LOADER_TO_RESPONDER_MAP[loader];
         var rawData:String = String(loader.data);
         finishRequest(loader);
-        try {
-            var errorData:Object = JSON.parse(rawData);
-            var code:String = errorData.hasOwnProperty("code") ? errorData.code : event.errorID.toString();
-            var message:String = errorData.hasOwnProperty("message") ? errorData.message : event.text;
-            responder.onError(message, code, errorData);
-        } catch (e:*) {
-            responder.onError(event.text, responder.statusCode?responder.statusCode:event.errorID.toString(), rawData);
-        }
+        callFault(rawData, event.errorID.toString(), event.text, responder.statusCode, responder);
     }
 
     private static function onStatus(event:HTTPStatusEvent):void{
         var loader:URLLoader = URLLoader(event.currentTarget);
         var responder:LoaderResponder = LOADER_TO_RESPONDER_MAP[loader];
         responder.statusCode = event.status.toString();
+        if(event.type === HTTPStatusEvent.HTTP_RESPONSE_STATUS){
+            responder.headers = event.responseHeaders;
+        }
     }
 
     private static function onComplete(event:Event):void {
@@ -97,7 +95,22 @@ public class RestService extends EventDispatcher {
         var responder:LoaderResponder = LOADER_TO_RESPONDER_MAP[loader];
         var data:* = loader.data;
         finishRequest(loader);
-        responder.onSuccess(data);
+        if(responder.statusCode && responder.statusCode != "200"){
+            callFault(data, responder.statusCode, data, responder.statusCode, responder);
+        }else{
+            responder.onSuccess(data);
+        }
+    }
+
+    private static function callFault(rawData:String, errorCode:String, errorText:String, statusCode:String, responder:LoaderResponder):void{
+        try {
+            var errorData:Object = JSON.parse(rawData);
+            var code:String = errorData.hasOwnProperty("code") ? errorData.code : errorCode;
+            var message:String = errorData.hasOwnProperty("message") ? errorData.message : errorText;
+            responder.onError(message, code, errorData);
+        } catch (e:*) {
+            responder.onError(errorText, statusCode||errorCode, rawData);
+        }
     }
 
     public function callPost(method:String, parameters:Vector.<RequestParameter>, resultType:String, successHandler:Function = null, errorHandler:Function = null):void {
@@ -133,7 +146,7 @@ internal final class LoaderResponder {
     private var resultEvent:ResultEvent;
 
     public var statusCode:String;
-    public var faultData:*;
+    public var headers:Array;
 
     public function onSuccess(result:*):void {
         if (_successHandler != null) {
@@ -147,8 +160,9 @@ internal final class LoaderResponder {
 
     public function onError(message:String, code:String, faultContent:Object = null):void {
         if (_errorHandler != null) {
-            faultEvent = FaultEvent.createEvent(new Fault(code, message));
+            faultEvent = FaultEvent.createEvent(new Fault(code, message), null);
             faultEvent.fault.content = faultContent;
+            faultEvent.headers = headers;
             _dispatcher.addEventListener(faultEvent.type, onFault);
             _dispatcher.dispatchEvent(faultEvent);
         } else {
@@ -200,5 +214,6 @@ internal final class LoaderResponder {
         _resultType = null;
         resultEvent = null;
         faultEvent = null;
+        statusCode = null;
     }
 }
