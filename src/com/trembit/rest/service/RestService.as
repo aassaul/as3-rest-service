@@ -7,8 +7,6 @@
 package com.trembit.rest.service {
 import com.trembit.rest.data.RequestParameter;
 
-import flash.errors.IllegalOperationError;
-
 import flash.events.ErrorEvent;
 import flash.events.Event;
 import flash.events.EventDispatcher;
@@ -42,6 +40,7 @@ public class RestService extends EventDispatcher {
     private static function load(request:URLRequest, resultType:String, eventTarget:IEventDispatcher, successHandler:Function, errorHandler:Function):void {
         var loader:URLLoader = LoaderUtils.getLoader();
         var responder:LoaderResponder = new LoaderResponder(resultType, eventTarget, successHandler, errorHandler);
+        responder.url = request.url + "?" + request.data;
         LOADER_TO_RESPONDER_MAP[loader] = responder;
         addListeners(loader);
         loader.load(request);
@@ -78,7 +77,7 @@ public class RestService extends EventDispatcher {
     private static function onError(event:ErrorEvent):void {
         var loader:URLLoader = URLLoader(event.currentTarget);
         var responder:LoaderResponder = LOADER_TO_RESPONDER_MAP[loader];
-        var rawData:String = String(loader.data);
+        var rawData:* = loader.data;
         finishRequest(loader);
         callFault(rawData, event.errorID.toString(), event.text, responder.statusCode, responder);
     }
@@ -104,9 +103,9 @@ public class RestService extends EventDispatcher {
         }
     }
 
-    private static function callFault(rawData:String, errorCode:String, errorText:String, statusCode:String, responder:LoaderResponder):void{
+    private static function callFault(rawData:*, errorCode:String, errorText:String, statusCode:String, responder:LoaderResponder):void{
         try {
-            var errorData:Object = JSON.parse(rawData);
+            var errorData:Object = (rawData is String)?JSON.parse(rawData):rawData;
             var code:String = errorData.hasOwnProperty("code") ? errorData.code : errorCode;
             var message:String = errorData.hasOwnProperty("message") ? errorData.message : errorText;
             responder.onError(message, code, errorData);
@@ -176,6 +175,7 @@ internal final class LoaderResponder {
 
     public var statusCode:String;
     public var headers:Array;
+    public var url:String;
 
     public function onSuccess(result:*):void {
         if (_successHandler != null) {
@@ -187,9 +187,9 @@ internal final class LoaderResponder {
         }
     }
 
-    public function onError(message:String, code:String, faultContent:Object = null):void {
+    public function onError(message:String, code:String, faultContent:Object):void {
         if (_errorHandler != null) {
-            faultEvent = FaultEvent.createEvent(new Fault(code, message), null);
+            faultEvent = FaultEvent.createEvent(new Fault(code, message, url), null);
             faultEvent.fault.content = faultContent;
             faultEvent.headers = headers;
             _dispatcher.addEventListener(faultEvent.type, onFault);
@@ -225,9 +225,9 @@ internal final class LoaderResponder {
     private function getResult(data:*):* {
         switch (_resultType) {
             case ResultType.JSON:
-                return JSON.parse(data);
+                return (data is String)?JSON.parse(data):data;
             case ResultType.XML:
-                return new XML(data);
+                return (data is XML)?data:new XML(data);
             case ResultType.NUMBER:
                 return Number(data);
             case ResultType.STRING:
@@ -244,6 +244,8 @@ internal final class LoaderResponder {
         resultEvent = null;
         faultEvent = null;
         statusCode = null;
+        headers = null;
+        url = null;
     }
 }
 internal class RestMethod{
