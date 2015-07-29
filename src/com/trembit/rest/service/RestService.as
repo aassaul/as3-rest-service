@@ -128,7 +128,7 @@ public class RestService extends EventDispatcher {
     public function callMapped(method:String, values:Array, successHandler:Function = null, faultHandler:Function = null):void{
         var methodObject:RestMethod = METHOD_NAME_TO_METHOD_OBJECT_MAP[method];
         for (var i:int = 0; i < values.length; i++) {
-            methodObject.parameters[i] = values[i];
+            methodObject.parameters[i].value = values[i];
         }
         load(createRequest(method, methodObject.parameters, methodObject.urlRequestMethod), methodObject.resultType, this, successHandler, faultHandler);
     }
