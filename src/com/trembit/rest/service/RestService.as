@@ -7,6 +7,8 @@
 package com.trembit.rest.service {
 import com.trembit.rest.data.RequestParameter;
 
+import flash.errors.IllegalOperationError;
+
 import flash.events.ErrorEvent;
 import flash.events.Event;
 import flash.events.EventDispatcher;
@@ -113,12 +115,38 @@ public class RestService extends EventDispatcher {
         }
     }
 
-    public function callPost(method:String, parameters:Vector.<RequestParameter>, resultType:String, successHandler:Function = null, errorHandler:Function = null):void {
-        load(createRequest(method, parameters, URLRequestMethod.POST), resultType, this, successHandler, errorHandler);
+    private const METHOD_NAME_TO_METHOD_OBJECT_MAP:Dictionary = new Dictionary();
+
+    public function callPost(method:String, parameters:Vector.<RequestParameter>, resultType:String, successHandler:Function = null, faultHandler:Function = null):void {
+        load(createRequest(method, parameters, URLRequestMethod.POST), resultType, this, successHandler, faultHandler);
     }
 
-    public function callGet(method:String, parameters:Vector.<RequestParameter>, resultType:String, successHandler:Function = null, errorHandler:Function = null):void {
-        load(createRequest(method, parameters, URLRequestMethod.GET), resultType, this, successHandler, errorHandler);
+    public function callGet(method:String, parameters:Vector.<RequestParameter>, resultType:String, successHandler:Function = null, faultHandler:Function = null):void {
+        load(createRequest(method, parameters, URLRequestMethod.GET), resultType, this, successHandler, faultHandler);
+    }
+
+    public function callMapped(method:String, values:Array, successHandler:Function = null, faultHandler:Function = null):void{
+        var methodObject:RestMethod = METHOD_NAME_TO_METHOD_OBJECT_MAP[method];
+        for (var i:int = 0; i < values.length; i++) {
+            methodObject.parameters[i] = values[i];
+        }
+        load(createRequest(method, methodObject.parameters, methodObject.urlRequestMethod), methodObject.resultType, this, successHandler, faultHandler);
+    }
+
+    /**
+     * Maps remote method to ordered parameters see callMapped
+     * @param method Name of remote method.
+     * @param parameterString Parameters, separated with '&' character: name&email.
+     * @param resultType Value from ResultType
+     * @param urlRequestMethod Value from URLRequestMethod
+     */
+    public function map(method:String, parameterString:String, resultType:String, urlRequestMethod:String):void{
+        var parameterNames:Array = parameterString.split("&");
+        var parameters:Vector.<RequestParameter> = new Vector.<RequestParameter>();
+        for each (var parameterName:String in parameterNames) {
+            parameters.push(new RequestParameter(parameterName, ""));
+        }
+        METHOD_NAME_TO_METHOD_OBJECT_MAP[method] = new RestMethod(urlRequestMethod, resultType, parameters);
     }
 
     public function RestService(baseUrl:String) {
@@ -129,6 +157,7 @@ public class RestService extends EventDispatcher {
 }
 
 import com.trembit.rest.constants.ResultType;
+import com.trembit.rest.data.RequestParameter;
 
 import flash.events.IEventDispatcher;
 
@@ -215,5 +244,28 @@ internal final class LoaderResponder {
         resultEvent = null;
         faultEvent = null;
         statusCode = null;
+    }
+}
+internal class RestMethod{
+    private var _urlRequestMethod:String;
+    private var _resultType:String;
+    private var _parameters:Vector.<RequestParameter>;
+
+    public function get urlRequestMethod():String {
+        return _urlRequestMethod;
+    }
+
+    public function get resultType():String {
+        return _resultType;
+    }
+
+    public function get parameters():Vector.<RequestParameter> {
+        return _parameters;
+    }
+
+    public function RestMethod(urlRequestMethod:String, resultType:String, parameters:Vector.<RequestParameter>) {
+        _urlRequestMethod = urlRequestMethod;
+        _resultType = resultType;
+        _parameters = parameters;
     }
 }

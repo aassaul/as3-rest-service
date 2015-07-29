@@ -11,6 +11,7 @@ import com.trembit.rest.data.RequestParameter;
 import flash.events.Event;
 
 import flash.events.EventDispatcher;
+import flash.net.URLRequestMethod;
 
 import mx.rpc.events.FaultEvent;
 
@@ -42,7 +43,7 @@ public class RestServiceTest extends EventDispatcher{
                     new RequestParameter("param2", "value 2")
                 ],
                 ResultType.JSON, onTestJSONResult, failOnFault);
-        Async.proceedOnEvent(this, this, Event.COMPLETE, 60*1000);
+        Async.proceedOnEvent(this, this, Event.COMPLETE, 5*1000);
     }
 
     private function onTestJSONResult(data:ResultEvent):void{
@@ -69,6 +70,16 @@ public class RestServiceTest extends EventDispatcher{
     }
 
     private function onTestPost(data:ResultEvent):void{
+        assertTrue(data.result.hasOwnProperty("param1"));
+        assertTrue(data.result.hasOwnProperty("param2"));
+        assertEquals(data.result.param1, "value1");
+        assertEquals(data.result.param2, "value 2");
+        var service:RestService = RestService(data.currentTarget);
+        service.map("get", "param1&param2", ResultType.JSON, URLRequestMethod.GET);
+        service.callMapped("get", ["value1", "value 2"], onTestMap, failOnFault);
+    }
+
+    private function onTestMap(data:ResultEvent):void{
         assertTrue(data.result.hasOwnProperty("param1"));
         assertTrue(data.result.hasOwnProperty("param2"));
         assertEquals(data.result.param1, "value1");
