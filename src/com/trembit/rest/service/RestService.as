@@ -132,6 +132,10 @@ public class RestService extends EventDispatcher {
         load(createRequest(method, methodObject.parameters, methodObject.urlRequestMethod), methodObject.resultType, this, successHandler, faultHandler);
     }
 
+    public function isMapped(method:String):Boolean{
+        return (method in METHOD_NAME_TO_METHOD_OBJECT_MAP);
+    }
+
     /**
      * Maps remote method to ordered parameters see callMapped
      * @param method Name of remote method.

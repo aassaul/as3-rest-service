@@ -76,6 +76,7 @@ public class RestServiceTest extends EventDispatcher{
         assertEquals(data.result.param2, "value 2");
         var service:RestService = RestService(data.currentTarget);
         service.map("get", "param1&param2", ResultType.JSON, URLRequestMethod.GET);
+        assertTrue(service.isMapped("get"));
         service.callMapped("get", ["value1", "value 2"], onTestMap, failOnFault);
     }
 
