@@ -9,13 +9,13 @@ public final class RequestParameter {
 
     private var _name:String;
 
-    public var value:String;
+    public var value:*;
 
     public function get name():String {
         return _name;
     }
 
-    public function RequestParameter(name:String, value:String = "") {
+    public function RequestParameter(name:String, value:* = null) {
         _name = name;
         this.value = value;
     }

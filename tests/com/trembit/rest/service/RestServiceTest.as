@@ -11,6 +11,7 @@ import com.trembit.rest.data.RequestParameter;
 import flash.events.Event;
 
 import flash.events.EventDispatcher;
+import flash.net.URLRequestHeader;
 import flash.net.URLRequestMethod;
 
 import mx.rpc.events.FaultEvent;
@@ -38,10 +39,15 @@ public class RestServiceTest extends EventDispatcher{
     [Test(async)]
     public function testCallGet():void {
         var service:RestService = new RestService("http://192.168.1.127:1715/");
+
+        var headers:Vector.<URLRequestHeader> = new <URLRequestHeader>[
+            new URLRequestHeader("Content-type", RestService.JSON_MIME),
+            new URLRequestHeader("Authorization", "")];
+
         service.callGet("get", new <RequestParameter>[
                     new RequestParameter("param1", "value1"),
                     new RequestParameter("param2", "value 2")
-                ],
+                ], headers,
                 ResultType.JSON, onTestJSONResult, failOnFault);
         Async.proceedOnEvent(this, this, Event.COMPLETE, 5*1000);
     }
@@ -53,7 +59,7 @@ public class RestServiceTest extends EventDispatcher{
         assertEquals(data.result.param2, "value 2");
         var service:RestService = RestService(data.currentTarget);
         assertNotNull(service);
-        service.callGet("get1", null, null, failOnComplete, onTestFault);
+        service.callGet("get1", null, null, null, failOnComplete, onTestFault);
         assertEquals(LoaderUtils.loaders.length, 1);
     }
 
@@ -63,7 +69,7 @@ public class RestServiceTest extends EventDispatcher{
         service.callPost("post", new <RequestParameter>[
                     new RequestParameter("param1", "value1"),
                     new RequestParameter("param2", "value 2")
-                ],
+                ], null,
                 ResultType.JSON, onTestPost, failOnFault);
         service.callGet("get", null, null, null, failOnFault);
         assertEquals(LoaderUtils.loaders.length, 2);
@@ -77,7 +83,7 @@ public class RestServiceTest extends EventDispatcher{
         var service:RestService = RestService(data.currentTarget);
         service.map("get", "param1&param2", ResultType.JSON, URLRequestMethod.GET);
         assertTrue(service.isMapped("get"));
-        service.callMapped("get", ["value1", "value 2"], onTestMap, failOnFault);
+        service.callMapped("get", ["value1", "value 2"], null, onTestMap, failOnFault);
     }
 
     private function onTestMap(data:ResultEvent):void{
