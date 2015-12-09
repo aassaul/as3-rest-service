@@ -82,7 +82,8 @@ public class RestService extends EventDispatcher {
         super(this);
         this.baseUrl = baseUrl;
     }
-    private var baseUrl:String;
+
+    private var _baseUrl:String;
 
     public function callPost(method:String, parameters:Vector.<RequestParameter>, headers:Vector.<URLRequestHeader>, resultType:String, successHandler:Function = null, faultHandler:Function = null):void {
         load(createRequest(method, parameters, headers, URLRequestMethod.POST), resultType, this, successHandler, faultHandler);
@@ -137,7 +138,7 @@ public class RestService extends EventDispatcher {
     }
 
     private function createRequest(method:String, parameters:Vector.<RequestParameter>, headers:Vector.<URLRequestHeader>, requestType:String):URLRequest {
-        var request:URLRequest = new URLRequest(baseUrl + method);
+        var request:URLRequest = new URLRequest(_baseUrl + method);
         request.method = requestType;
         var contentType:String = null;
         for each(var h:URLRequestHeader in headers) {
@@ -153,20 +154,19 @@ public class RestService extends EventDispatcher {
         for each (var parameter:RequestParameter in parameters) {
             data[parameter.name] = parameter.value;
         }
-        if (parameters && parameters.length) {
-            request.data = contentType == JSON_MIME ? JSON.stringify(data) : data;
+        if (Platform.isBrowser && contentType != JSON_MIME && !(parameters && parameters.length)) {
+            /*	according to
+             If running in Flash Player and the referenced form has no body, Flash Player automatically uses a GET operation, even if the method is set to URLRequestMethod.POST. For this reason, it is recommended to always include a "dummy" body to ensure that the correct method is used.
+             http://help.adobe.com/en_US/FlashPlatform/reference/actionscript/3/flash/net/URLRequest.html#method
+             */
+            data["dummyData"] = "dummyData";
         }
+        request.data = (contentType == JSON_MIME) ? JSON.stringify(data) : data;
         if (Platform.isBrowser && request.requestHeaders.length && requestType != URLRequestMethod.POST) {
             request.method = URLRequestMethod.POST;
             request.requestHeaders.push(new URLRequestHeader("X-HTTP-Method-Override", requestType));
-            if (!parameters || parameters.length == 0) {
-                /*	according to
-                 If running in Flash Player and the referenced form has no body, Flash Player automatically uses a GET operation, even if the method is set to URLRequestMethod.POST. For this reason, it is recommended to always include a "dummy" body to ensure that the correct method is used.
-                 http://help.adobe.com/en_US/FlashPlatform/reference/actionscript/3/flash/net/URLRequest.html#method
-                 */
-                request.data = "dummyData";
-            }
         }
+
         return request;
     }
 
@@ -197,6 +197,14 @@ public class RestService extends EventDispatcher {
         } else {
             responder.onSuccess(data);
         }
+    }
+
+    public function get baseUrl():String {
+        return _baseUrl;
+    }
+
+    public function set baseUrl(value:String):void {
+        _baseUrl = value;
     }
 }
 }
