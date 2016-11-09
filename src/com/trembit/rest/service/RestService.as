@@ -101,17 +101,15 @@ public class RestService extends EventDispatcher {
         for (var i:int = 0; i < values.length; i++) {
             methodObject.parameters[i].value = values[i];
         }
+        if (methodObject.headers.length && !(headers && headers.length == methodObject.headers.length)) {
+            throw new ArgumentError("headers number expected to be " + methodObject.headers.length);
+        }
         if (headers) {
-            if (!methodObject.headers || headers.length != methodObject.headers.length) {
-                throw new ArgumentError("headers number expected to be " + methodObject.headers ? methodObject.headers.length : 0);
-            }
             for (i = 0; i < headers.length; i++) {
                 methodObject.headers[i].value = headers[i];
             }
-        } else if (methodObject.headers) {
-            throw new ArgumentError("headers number expected to be " + methodObject.headers.length);
         }
-        load(createRequest(method, methodObject.parameters, methodObject.headers, methodObject.urlRequestMethod), methodObject.resultType, this, successHandler, faultHandler);
+        load(createRequest(method, methodObject.parameters, methodObject.allHeaders, methodObject.urlRequestMethod), methodObject.resultType, this, successHandler, faultHandler);
     }
 
     public function isMapped(method:String):Boolean {
@@ -124,9 +122,9 @@ public class RestService extends EventDispatcher {
      * @param parameterString Parameters, separated with '&' character: name&email.
      * @param resultType Value from ResultType
      * @param urlRequestMethod Value from URLRequestMethod
-     * @param headers The array of HTTP request headers to be appended to the HTTP request
+     * @param defaultHeaders The array of HTTP request headers to be appended to the HTTP request
      */
-    public function map(method:String, parameterString:String, resultType:String, urlRequestMethod:String, headers:Vector.<URLRequestHeader> = null):void {
+    public function map(method:String, parameterString:String, resultType:String, urlRequestMethod:String, defaultHeaders:Vector.<URLRequestHeader> = null, headerString:String = null):void {
         var parameterNames:Array = parameterString.split("&");
         var parameters:Vector.<RequestParameter> = new Vector.<RequestParameter>();
         for each (var parameterName:String in parameterNames) {
@@ -134,7 +132,18 @@ public class RestService extends EventDispatcher {
                 parameters.push(new RequestParameter(parameterName, ""));
             }
         }
-        METHOD_NAME_TO_METHOD_OBJECT_MAP[method] = new RestMethod(urlRequestMethod, resultType, parameters, headers);
+
+        var headers:Vector.<URLRequestHeader> = new Vector.<URLRequestHeader>();
+        if(headerString) {
+            var headerNames:Array = headerString.split("&");
+            for each (var headerName:String in headerNames) {
+                if (headerName != "") {
+                    headers.push(new URLRequestHeader(headerName, ""));
+                }
+            }
+        }
+
+        METHOD_NAME_TO_METHOD_OBJECT_MAP[method] = new RestMethod(urlRequestMethod, resultType, parameters, defaultHeaders, headers);
     }
 
     private function createRequest(method:String, parameters:Vector.<RequestParameter>, headers:Vector.<URLRequestHeader>, requestType:String):URLRequest {
@@ -308,6 +317,7 @@ internal class RestMethod {
     private var _resultType:String;
     private var _parameters:Vector.<RequestParameter>;
     private var _headers:Vector.<URLRequestHeader>;
+    private var _defaultHeaders:Vector.<URLRequestHeader>;
 
     public function get urlRequestMethod():String {
         return _urlRequestMethod;
@@ -321,18 +331,26 @@ internal class RestMethod {
         return _parameters;
     }
 
-    public function RestMethod(urlRequestMethod:String, resultType:String, parameters:Vector.<RequestParameter>, headers:Vector.<URLRequestHeader> = null) {
+    public function RestMethod(urlRequestMethod:String, resultType:String, parameters:Vector.<RequestParameter>, defaultHeaders:Vector.<URLRequestHeader> = null, headers:Vector.<URLRequestHeader> = null) {
         _urlRequestMethod = urlRequestMethod;
         _resultType = resultType;
         _parameters = parameters;
+        _defaultHeaders = defaultHeaders;
         _headers = headers;
+    }
+
+    public function get allHeaders():Vector.<URLRequestHeader> {
+        var res:Vector.<URLRequestHeader> = new Vector.<URLRequestHeader>();
+        if(_defaultHeaders) {
+            res = res.concat(_defaultHeaders);
+        }
+        if(_headers) {
+            res = res.concat(_headers);
+        }
+        return res;
     }
 
     public function get headers():Vector.<URLRequestHeader> {
         return _headers;
-    }
-
-    public function set headers(value:Vector.<URLRequestHeader>):void {
-        _headers = value;
     }
 }
